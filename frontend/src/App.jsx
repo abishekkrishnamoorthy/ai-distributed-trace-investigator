@@ -18,7 +18,7 @@ const App = () => {
         <div>
           <h1>Get started</h1>
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            Edit <code>src/App.jsx</code> hi i'm abishek<code>HMR</code>
           </p>
         </div>
         <button
@@ -26,7 +26,7 @@ const App = () => {
           className="counter"
           onClick={() => setCount((count) => count + 1)}
         >
-          Count is {count}
+          hit is {count}
         </button>
       </section>
 
@@ -59,7 +59,7 @@ const App = () => {
             <use href="/icons.svg#social-icon"></use>
           </svg>
           <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
+          <p>Join with my team</p>
           <ul>
             <li>
               <a href="https://github.com/vitejs/vite" target="_blank">
