@@ -1,0 +1,147 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Workflow information
+        run: |
+          set -euo pipefail
+          echo "Backend CI started"
+          echo "Repository : ${{ github.repository }}"
+          echo "Branch     : ${{ github.ref_name }}"
+          echo "Actor      : ${{ github.actor }}"
+          echo "Commit SHA : ${{ github.sha }}"
+          echo "Runner OS  : $RUNNER_OS"
+          echo ""
+          echo "Current Directory"
+          pwd
+          echo ""
+          echo "Node Version"
+          node -v
+          echo ""
+          echo "NPM Version"
+          npm -v
+
+      - name: Display backend files
+        run: |
+          set -euo pipefail
+          echo "Backend Structure"
+          pwd
+          ls -lah
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          echo "Installing backend dependencies"
+          npm ci
+          echo "Dependencies installed"
+
+      - name: Build successful
+        run: |
+          set -euo pipefail
+          echo "Backend CI completed successfully"
+
+  deploy:
+    name: Continuous Deployment
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+
+            DEPLOY_PATH="$HOME/project/ai-distributed-trace-investigator/backend"
+            PM2_APP_NAME="ai-trace"
+
+            echo "Connected to EC2"
+            echo "Current user"
+            whoami
+            echo ""
+            echo "Current directory"
+            pwd
+            echo ""
+            echo "Current date"
+            date
+            echo ""
+            echo "Server uptime"
+            uptime
+
+            echo "Go to backend project directory"
+            cd "$DEPLOY_PATH"
+            pwd
+
+            echo "Project files"
+            ls -lah
+
+            echo "Current git status"
+            git status --short
+            git branch --show-current
+            git log --oneline -5
+
+            echo "Pull latest code"
+            git pull origin main
+            echo "Git pull successful"
+
+            echo "Check production .env file"
+            if [ ! -f ".env" ]; then
+              echo ".env file is missing on EC2"
+              exit 1
+            fi
+            echo ".env file found"
+
+            echo "Install production dependencies"
+            npm ci --omit=dev
+            echo "Production dependencies installed"
+
+            echo "Restart backend with PM2"
+            pm2 restart "$PM2_APP_NAME" || pm2 start index.js --name "$PM2_APP_NAME"
+            pm2 save
+            echo "PM2 restart successful"
+
+            echo "PM2 process list"
+            pm2 list
+
+            echo "Application health check"
+            set -a
+            . ./.env
+            set +a
+            if [ -z "${PORT:-}" ]; then
+              echo "PORT is missing in EC2 .env"
+              exit 1
+            fi
+            sleep 5
+            curl -fsS "http://127.0.0.1:${PORT}/hello" > /dev/null
+            echo "Health check successful"
+
+            echo "Last 20 PM2 logs"
+            pm2 logs "$PM2_APP_NAME" --lines 20 --nostream
+
+            echo "Deployment completed successfully"
