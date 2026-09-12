@@ -21,6 +21,15 @@ const getTraces = async (req, res, next) => {
   }
 };
 
+const getTraceStats = async (req, res, next) => {
+  try {
+    const stats = await traceService.getTraceStats();
+    res.json(stats);
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getTraceById = async (req, res, next) => {
   try {
     const trace = await traceService.getTraceById(req.params.traceId);
@@ -78,6 +87,7 @@ const getServices = async (req, res, next) => {
 module.exports = {
   getHealth,
   getTraces,
+  getTraceStats,
   getTraceById,
   analyzeTraces,
   getServices

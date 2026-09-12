@@ -232,6 +232,71 @@ const getTraces = async (query) => {
   };
 };
 
+const getTraceStats = async () => {
+  const [result] = await Trace.aggregate([
+    ...rootDurationStages,
+    {
+      $group: {
+        _id: null,
+        totalTraces: { $sum: 1 },
+        successfulTraces: {
+          $sum: {
+            $cond: [{ $eq: ["$status", "OK"] }, 1, 0]
+          }
+        },
+        errorTraces: {
+          $sum: {
+            $cond: [{ $eq: ["$status", "ERROR"] }, 1, 0]
+          }
+        },
+        averageDuration: { $avg: "$overallDuration" }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        totalTraces: 1,
+        successfulTraces: 1,
+        errorTraces: 1,
+        averageDuration: { $round: ["$averageDuration", 0] },
+        successRate: {
+          $round: [
+            {
+              $multiply: [
+                { $divide: ["$successfulTraces", "$totalTraces"] },
+                100
+              ]
+            },
+            0
+          ]
+        },
+        errorRate: {
+          $round: [
+            {
+              $multiply: [
+                { $divide: ["$errorTraces", "$totalTraces"] },
+                100
+              ]
+            },
+            0
+          ]
+        }
+      }
+    }
+  ]);
+
+  return {
+    data: result || {
+      totalTraces: 0,
+      successfulTraces: 0,
+      errorTraces: 0,
+      averageDuration: 0,
+      successRate: 0,
+      errorRate: 0
+    }
+  };
+};
+
 const createSpanSummary = (span) => ({
   spanId: span.spanId,
   service: span.service,
@@ -452,6 +517,7 @@ const getServices = async () => {
 
 module.exports = {
   getTraces,
+  getTraceStats,
   getTraceById,
   getServices
 };
