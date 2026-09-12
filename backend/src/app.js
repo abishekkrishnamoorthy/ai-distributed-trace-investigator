@@ -10,7 +10,7 @@ app.use(express.json());
 
 app.get("/hello", (req, res) => {
   res.json({
-    message: "Hello World 12",
+    message: "Hello World 12s",
     status: "Backend is running"
   });
 });
