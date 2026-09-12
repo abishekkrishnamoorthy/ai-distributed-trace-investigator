@@ -14,7 +14,7 @@ const startServer = async () => {
     });
 
     server.on("error", (error) => {
-      console.error("Failed to start backend server:", error);
+      console.error("Failed to start backend servers:", error);
       process.exit(1);
     });
   } catch (error) {
