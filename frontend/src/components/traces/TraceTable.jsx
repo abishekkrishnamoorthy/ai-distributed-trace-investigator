@@ -45,6 +45,12 @@ export const TraceTable = ({
   onReset,
   onToggleTrace,
   onTogglePage,
+  isTraceSelectionDisabled = () => false,
+  disablePageSelection = false,
+  errorTitle = 'Unable to load traces',
+  emptyTitle = 'No traces found',
+  emptyDescription = 'Try adjusting your search or filters.',
+  resetLabel = 'Reset Filters',
 }) => {
   const maxDuration = useMemo(() => {
     return traces.reduce((max, trace) => Math.max(max, trace.overallDuration || 0), 0)
@@ -63,6 +69,7 @@ export const TraceTable = ({
             sort={sort}
             onSort={onSort}
             onTogglePage={onTogglePage}
+            disablePageSelection={disablePageSelection}
           />
           <tbody>
             {loading ? (
@@ -70,16 +77,16 @@ export const TraceTable = ({
             ) : error ? (
               <tr>
                 <td colSpan="7">
-                  <ErrorState title="Unable to load traces" onAction={onRetry} />
+                  <ErrorState title={errorTitle} onAction={onRetry} />
                 </td>
               </tr>
             ) : traces.length === 0 ? (
               <tr>
                 <td colSpan="7">
                   <div className="state-panel">
-                    <strong>No traces found</strong>
-                    <span>Try adjusting your search or filters.</span>
-                    <button type="button" onClick={onReset}>Reset Filters</button>
+                    <strong>{emptyTitle}</strong>
+                    <span>{emptyDescription}</span>
+                    <button type="button" onClick={onReset}>{resetLabel}</button>
                   </div>
                 </td>
               </tr>
@@ -89,6 +96,7 @@ export const TraceTable = ({
                   key={trace.traceId}
                   trace={trace}
                   selected={selectedTraceIds.has(trace.traceId)}
+                  disabled={isTraceSelectionDisabled(trace.traceId)}
                   maxDuration={maxDuration}
                   onCopy={onCopy}
                   onToggleTrace={onToggleTrace}
@@ -104,12 +112,12 @@ export const TraceTable = ({
         {loading ? (
           <MobileSkeletonCards />
         ) : error ? (
-          <ErrorState title="Unable to load traces" onAction={onRetry} />
+          <ErrorState title={errorTitle} onAction={onRetry} />
         ) : traces.length === 0 ? (
           <div className="state-panel">
-            <strong>No traces found</strong>
-            <span>Try adjusting your search or filters.</span>
-            <button type="button" onClick={onReset}>Reset Filters</button>
+            <strong>{emptyTitle}</strong>
+            <span>{emptyDescription}</span>
+            <button type="button" onClick={onReset}>{resetLabel}</button>
           </div>
         ) : (
           traces.map((trace) => (
@@ -117,6 +125,7 @@ export const TraceTable = ({
               key={trace.traceId}
               trace={trace}
               selected={selectedTraceIds.has(trace.traceId)}
+              disabled={isTraceSelectionDisabled(trace.traceId)}
               onCopy={onCopy}
               onToggleTrace={onToggleTrace}
             />

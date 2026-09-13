@@ -4,14 +4,16 @@ import { Icon } from '../common/Icon'
 import { DurationBar } from './DurationBar'
 import { TraceStatusBadge } from './TraceStatusBadge'
 
-export const TraceTableRow = ({ trace, selected, maxDuration, onCopy, onToggleTrace }) => (
+export const TraceTableRow = ({ trace, selected, disabled, maxDuration, onCopy, onToggleTrace }) => (
   <tr>
     <td className="checkbox-cell">
       <input
         type="checkbox"
         checked={selected}
+        disabled={disabled}
         onChange={() => onToggleTrace(trace.traceId)}
         aria-label={`Select ${trace.traceId}`}
+        title={disabled ? 'AI analysis supports a maximum of 3 traces.' : undefined}
       />
     </td>
     <td>

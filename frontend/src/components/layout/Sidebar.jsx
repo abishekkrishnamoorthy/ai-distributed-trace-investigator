@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Icon } from '../common/Icon'
 
-export const Sidebar = ({ open = false, onClose, onNavigate }) => (
+export const Sidebar = ({ open = false, onClose, onLogout, onNavigate, user }) => (
   <>
     <button
       className={`sidebar-backdrop ${open ? 'open' : ''}`}
@@ -41,15 +41,15 @@ export const Sidebar = ({ open = false, onClose, onNavigate }) => (
       <div className="user-card">
         <span className="avatar muted">A</span>
         <span>
-          <strong>Abishek</strong>
-          <small>Developer</small>
+          <strong>{user?.username || 'Admin'}</strong>
+          <small>Administrator</small>
         </span>
         <Icon name="chevronRight" size={18} />
       </div>
-      <a className="logout-link" href="/logout">
+      <button className="logout-link" type="button" onClick={onLogout}>
         <Icon name="logout" />
         <span>Logout</span>
-      </a>
+      </button>
     </div>
   </aside>
   </>

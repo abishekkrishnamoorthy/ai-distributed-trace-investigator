@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   DEFAULT_TRACE_FILTERS,
   DEFAULT_TRACE_PAGINATION,
@@ -14,10 +14,14 @@ import { TraceTable } from '../../components/traces/TraceTable'
 import { useServices } from '../../hooks/useServices'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useTraceStats } from '../../hooks/useTraceStats'
+import { useAISearch } from '../../hooks/useAISearch'
 import { useTraces } from '../../hooks/useTraces'
+
+const MAX_AI_ANALYSIS_SELECTION = 3
 
 export const TracesPage = () => {
   const { showToast } = useOutletContext()
+  const navigate = useNavigate()
   const [filters, setFilters] = useState(DEFAULT_TRACE_FILTERS)
   const [paginationState, setPaginationState] = useState(DEFAULT_TRACE_PAGINATION)
   const [sort, setSort] = useState(DEFAULT_TRACE_SORT)
@@ -48,21 +52,38 @@ export const TracesPage = () => {
 
   const { stats, loading: statsLoading, error: statsError } = useTraceStats()
   const { services } = useServices()
+  const aiSearch = useAISearch()
   const {
     traces,
     pagination,
     loading: tracesLoading,
     error: tracesError,
     refetch: refetchTraces,
-  } = useTraces(query)
+  } = useTraces(query, { enabled: !aiSearch.isActive })
+
+  const displayedTraces = aiSearch.isActive ? aiSearch.results : traces
+  const displayedPagination = aiSearch.isActive ? aiSearch.pagination : pagination
+  const displayedLoading = aiSearch.isActive ? aiSearch.loading : tracesLoading
+  const displayedError = aiSearch.isActive ? Boolean(aiSearch.error) : tracesError
+  const selectedCount = selectedTraceIds.size
+  const canAnalyzeSelected = selectedCount >= 2 && selectedCount <= MAX_AI_ANALYSIS_SELECTION
+  const canCompareSelected = selectedCount === 2
 
   const updateFilter = (key, value) => {
+    if (aiSearch.isActive) {
+      aiSearch.reset()
+    }
+
     setFilters((current) => ({ ...current, [key]: value }))
     setPaginationState((current) => ({ ...current, page: 1 }))
     setSelectedTraceIds(new Set())
   }
 
   const resetFilters = () => {
+    if (aiSearch.isActive) {
+      aiSearch.reset()
+    }
+
     setFilters(DEFAULT_TRACE_FILTERS)
     setSort(DEFAULT_TRACE_SORT)
     setPaginationState({ ...DEFAULT_TRACE_PAGINATION })
@@ -71,6 +92,11 @@ export const TracesPage = () => {
   }
 
   const handleSort = (field) => {
+    if (aiSearch.isActive) {
+      showToast('Clear AI Search before sorting normal traces')
+      return
+    }
+
     setSort((current) => ({
       sortBy: field,
       order: current.sortBy === field && current.order === 'desc' ? 'asc' : 'desc',
@@ -92,8 +118,10 @@ export const TracesPage = () => {
       const next = new Set(current)
       if (next.has(traceId)) {
         next.delete(traceId)
-      } else {
+      } else if (next.size < MAX_AI_ANALYSIS_SELECTION) {
         next.add(traceId)
+      } else {
+        showToast('AI analysis supports a maximum of 3 traces.')
       }
       return next
     })
@@ -102,7 +130,14 @@ export const TracesPage = () => {
   const togglePageSelection = (checked) => {
     setSelectedTraceIds((current) => {
       const next = new Set(current)
-      traces.forEach((trace) => {
+      const unselectedVisibleTraces = displayedTraces.filter((trace) => !next.has(trace.traceId))
+
+      if (checked && next.size + unselectedVisibleTraces.length > MAX_AI_ANALYSIS_SELECTION) {
+        showToast('AI analysis supports a maximum of 3 traces.')
+        return next
+      }
+
+      displayedTraces.forEach((trace) => {
         if (checked) {
           next.add(trace.traceId)
         } else {
@@ -113,8 +148,61 @@ export const TracesPage = () => {
     })
   }
 
-  const handlePreparedAction = (label) => {
-    showToast(`${label} is prepared for a future workflow.`)
+  const handleAISearchSubmit = (searchQuery) => {
+    setSelectedTraceIds(new Set())
+    aiSearch.search(searchQuery, 1, displayedPagination.limit)
+  }
+
+  const handleAISearchReset = () => {
+    aiSearch.reset()
+    setPaginationState((current) => ({ ...current, page: 1 }))
+    setSelectedTraceIds(new Set())
+  }
+
+  const handlePageChange = (page) => {
+    setSelectedTraceIds(new Set())
+
+    if (aiSearch.isActive) {
+      aiSearch.search(aiSearch.submittedQuery || aiSearch.query, page, aiSearch.pagination.limit)
+      return
+    }
+
+    setPaginationState((current) => ({ ...current, page }))
+  }
+
+  const handleLimitChange = (limit) => {
+    setSelectedTraceIds(new Set())
+
+    if (aiSearch.isActive) {
+      aiSearch.search(aiSearch.submittedQuery || aiSearch.query, 1, limit)
+      return
+    }
+
+    setPaginationState((current) => ({ ...current, page: 1, limit }))
+  }
+
+  const handleAnalyzeSelected = () => {
+    const traceIds = Array.from(selectedTraceIds)
+
+    if (!canAnalyzeSelected) {
+      showToast(traceIds.length > MAX_AI_ANALYSIS_SELECTION
+        ? 'AI analysis supports a maximum of 3 traces.'
+        : 'Select at least 2 traces for AI analysis')
+      return
+    }
+
+    navigate('/ai-insights', { state: { traceIds } })
+  }
+
+  const handleCompareSelected = () => {
+    const traceIds = Array.from(selectedTraceIds)
+
+    if (!canCompareSelected) {
+      showToast('Select exactly 2 traces to compare')
+      return
+    }
+
+    navigate('/compare', { state: { traceIds } })
   }
 
   return (
@@ -133,7 +221,16 @@ export const TracesPage = () => {
 
         <TraceStats stats={stats} loading={statsLoading} error={statsError} />
 
-        <AISearchPanel onNotice={showToast} />
+        <AISearchPanel
+          value={aiSearch.query}
+          filters={aiSearch.filters}
+          isActive={aiSearch.isActive}
+          loading={aiSearch.loading}
+          error={aiSearch.error}
+          onChange={aiSearch.setQuery}
+          onSubmit={handleAISearchSubmit}
+          onReset={handleAISearchReset}
+        />
 
         <TraceFilters
           filters={filters}
@@ -146,32 +243,40 @@ export const TracesPage = () => {
         />
 
         <TraceTable
-          traces={traces}
-          loading={tracesLoading}
-          error={tracesError}
+          traces={displayedTraces}
+          loading={displayedLoading}
+          error={displayedError}
           selectedTraceIds={selectedTraceIds}
           sort={sort}
           onSort={handleSort}
           onCopy={handleCopy}
-          onRetry={refetchTraces}
-          onReset={resetFilters}
+          onRetry={aiSearch.isActive ? () => aiSearch.search(aiSearch.submittedQuery || aiSearch.query, aiSearch.pagination.page, aiSearch.pagination.limit) : refetchTraces}
+          onReset={aiSearch.isActive ? handleAISearchReset : resetFilters}
           onToggleTrace={toggleTrace}
           onTogglePage={togglePageSelection}
+          isTraceSelectionDisabled={(traceId) => selectedTraceIds.size >= MAX_AI_ANALYSIS_SELECTION && !selectedTraceIds.has(traceId)}
+          disablePageSelection={selectedTraceIds.size >= MAX_AI_ANALYSIS_SELECTION && !displayedTraces.every((trace) => selectedTraceIds.has(trace.traceId))}
+          errorTitle={aiSearch.isActive ? 'Unable to run AI Search' : 'Unable to load traces'}
+          emptyTitle={aiSearch.isActive ? 'No traces found for this search' : 'No traces found'}
+          emptyDescription={aiSearch.isActive ? 'Try a broader natural-language query.' : 'Try adjusting your search or filters.'}
+          resetLabel={aiSearch.isActive ? 'Clear AI Search' : 'Reset Filters'}
         />
 
         <TracePagination
-          pagination={pagination}
-          loading={tracesLoading}
-          onPageChange={(page) => setPaginationState((current) => ({ ...current, page }))}
-          onLimitChange={(limit) => setPaginationState((current) => ({ ...current, page: 1, limit }))}
+          pagination={displayedPagination}
+          loading={displayedLoading}
+          onPageChange={handlePageChange}
+          onLimitChange={handleLimitChange}
         />
       </div>
 
       <TraceSelectionBar
-        count={selectedTraceIds.size}
+        count={selectedCount}
+        canAnalyze={canAnalyzeSelected}
+        canCompare={canCompareSelected}
         onClear={() => setSelectedTraceIds(new Set())}
-        onAnalyze={() => handlePreparedAction('Analyze Selected')}
-        onCompare={() => handlePreparedAction('Compare Selected')}
+        onAnalyze={handleAnalyzeSelected}
+        onCompare={handleCompareSelected}
       />
     </>
   )

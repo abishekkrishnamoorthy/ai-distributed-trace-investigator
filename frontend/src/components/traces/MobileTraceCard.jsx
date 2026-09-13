@@ -4,13 +4,15 @@ import { formatDuration } from '../../utils/formatDuration'
 import { Icon } from '../common/Icon'
 import { TraceStatusBadge } from './TraceStatusBadge'
 
-export const MobileTraceCard = ({ trace, selected, onCopy, onToggleTrace }) => (
+export const MobileTraceCard = ({ trace, selected, disabled, onCopy, onToggleTrace }) => (
   <article className="mobile-trace-card">
     <input
       type="checkbox"
       checked={selected}
+      disabled={disabled}
       onChange={() => onToggleTrace(trace.traceId)}
       aria-label={`Select ${trace.traceId}`}
+      title={disabled ? 'AI analysis supports a maximum of 3 traces.' : undefined}
     />
     <div className="mobile-trace-content">
       <span className="mobile-trace-main">

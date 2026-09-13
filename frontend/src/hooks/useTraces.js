@@ -2,13 +2,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { DEFAULT_TRACE_PAGINATION } from '../constants/trace'
 import { traceApi } from '../services/traceApi'
 
-export const useTraces = (query) => {
+export const useTraces = (query, options = {}) => {
+  const enabled = options.enabled !== false
   const [traces, setTraces] = useState([])
   const [pagination, setPagination] = useState(DEFAULT_TRACE_PAGINATION)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
   const refetch = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(false)
 
@@ -25,15 +31,19 @@ export const useTraces = (query) => {
     } finally {
       setLoading(false)
     }
-  }, [query])
+  }, [enabled, query])
 
   useEffect(() => {
+    if (!enabled) {
+      return undefined
+    }
+
     const timeoutId = window.setTimeout(() => {
       refetch()
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [refetch])
+  }, [enabled, refetch])
 
   return { traces, pagination, loading, error, refetch }
 }

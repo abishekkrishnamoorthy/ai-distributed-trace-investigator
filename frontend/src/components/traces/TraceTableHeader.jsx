@@ -24,6 +24,7 @@ export const TraceTableHeader = ({
   sort,
   onSort,
   onTogglePage,
+  disablePageSelection = false,
 }) => (
   <thead>
     <tr>
@@ -36,8 +37,10 @@ export const TraceTableHeader = ({
               input.indeterminate = !allVisibleSelected && someVisibleSelected
             }
           }}
+          disabled={disablePageSelection}
           onChange={() => onTogglePage(!allVisibleSelected)}
           aria-label="Select all traces on this page"
+          title={disablePageSelection ? 'AI analysis supports a maximum of 3 traces.' : undefined}
         />
       </th>
       <th>Trace ID</th>
