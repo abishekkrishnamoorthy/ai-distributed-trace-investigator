@@ -684,7 +684,5 @@ The project includes a separate **Architecture & Technical Design Document** cov
 
 **Abishek Krishnamoorthy**
 
-**Role Applied For:** Full Stack Developer
-
 **GitHub Repository:**  
 https://github.com/abishekkrishnamoorthy/ai-distributed-trace-investigator
